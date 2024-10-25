@@ -18,3 +18,4 @@ django-redis==5.4.0  # https://github.com/jazzband/django-redis
 # ------------------------------------------------------------------------------
 channels
 daphne
+channels_redis
