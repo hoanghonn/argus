@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    .ranking-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #007bff;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    .highlight {
+      background-color: #d1ecf1;
+      font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+
+      table,
+      th,
+      td {
+        font-size: 0.9em;
+      }
+    }
+  </style>
+{% endblock css %}
+{% block content %}
+  <h1>Waiting for other to complete</h1>
+  <div id="timer">Time left: 60 seconds</div>
+  <p>You answered {{ score }} out of {{ max_score }} correctly.</p>
+  <div class="ranking-container">
+    <h2>Quiz Ranking</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Player Name</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody id="ranking-table-body">
+        <!-- Rows will be populated here by JavaScript -->
+      </tbody>
+    </table>
+  </div>
+  <p>Live updates:</p>
+  <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+  {{ room_id|json_script:"room-id" }}
+  {{ quiz_list|json_script:"quiz-list" }}
+  {{ scores|json_script:"scores" }}
+{% endblock %}
+{% block inline_javascript %}
+  <script>
+    const roomId = JSON.parse(document.getElementById('room-id').textContent);
+    const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
+    const ranking = JSON.parse(document.getElementById('scores').textContent);
+    let currentQuestionIndex = 0;
+
+    const timerSocket = new WebSocket(
+      'ws://' +
+      window.location.host +
+      '/ws/chat/' +
+      roomId +
+      '/timer/'
+    );
+
+    timerSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'timer') {
+        if (data.remaining_time) {
+          document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
+        } else if (data.message) {
+          document.getElementById('timer').innerText = data.message;
+        }
+      }
+    };
+
+    function populateRankingTable() {
+      const tbody = document.getElementById('ranking-table-body');
+      tbody.innerHTML = ''; // Clear any existing rows
+
+      ranking.forEach((player, index) => {
+        const row = document.createElement('tr');
+
+        if (index === 0) {
+          row.classList.add('highlight');
+        }
+
+        const rankCell = document.createElement('td');
+        rankCell.textContent = index + 1;
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement('td');
+        nameCell.textContent = player.username;
+        row.appendChild(nameCell);
+
+        const scoreCell = document.createElement('td');
+        scoreCell.textContent = player.score;
+        row.appendChild(scoreCell);
+
+        tbody.appendChild(row);
+      });
+    }
+
+    // Call the function to populate the table when the page loads
+    populateRankingTable();
+  </script>
+{% endblock inline_javascript %}

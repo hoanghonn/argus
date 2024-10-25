@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    #quiz-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    #question-title {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+
+    /* Choices container as a grid */
+    .choices-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 15px;
+      text-align: left;
+    }
+
+    @media (min-width: 480px) {
+      .choices-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .choice-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+      cursor: pointer;
+    }
+
+    /* Radio input hidden, custom label styling */
+    .radio-input {
+      display: none;
+    }
+
+    .choice-label {
+      font-size: 1em;
+      margin-left: 10px;
+      color: #333;
+      width: 100%;
+    }
+
+    .choice-item:hover {
+      background-color: #f0f0f0;
+    }
+
+    .radio-input:checked+.choice-label {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    .submit-button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 1em;
+      font-weight: bold;
+      color: #fff;
+      background-color: #007bff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .submit-button:hover {
+      background-color: #0056b3;
+    }
+
+    .submit-button:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .correct-answer {
+      border: 2px solid #28a745;
+      background-color: #e6f4ea;
+      color: #155724;
+      border-radius: 5px;
+      padding: 8px;
+      transition: background-color 0.3s, border 0.3s;
+    }
+
+    .incorrect-answer {
+      border: 2px solid #dc3545;
+      background-color: #f8d7da;
+      color: #721c24;
+      border-radius: 5px;
+      padding: 8px;
+      transition: background-color 0.3s, border 0.3s;
+    }
+
+    .btn:disabled {
+      background-color: #d3d3d3;
+      color: #999;
+      cursor: not-allowed;
+      border: 1px solid #ccc;
+    }
+
+    #chat-log {
+      width: 100%;
+      max-width: 600px;
+      height: 400px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+      color: #333;
+      font-family: Arial, sans-serif;
+      font-size: 1em;
+      line-height: 1.5;
+      resize: none;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+    }
+
+    .ranking-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #007bff;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    .highlight {
+      background-color: #d1ecf1;
+      font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+
+      table,
+      th,
+      td {
+        font-size: 0.9em;
+      }
+    }
+  </style>
+{% endblock css %}
+{% block content %}
+  {% if error %}
+    <p>This session is not available</p>
+  {% else %}
+    {% if is_admin %}
+      <h1>Monitoring {{ room_name }} session</h1>
+      <label for="join-link">Share this link to join:</label>
+      <input type="text" id="join-link" value="link here" readonly />
+      <button onclick="copyLink()">Copy Link</button>
+      <div>
+        <p>Start the quiz session!</p>
+        <button id="start-timer">Start</button>
+      </div>
+      <div id="timer">Time left: 60 seconds</div>
+      <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+      <div class="ranking-container">
+        <h2>Quiz Ranking</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player Name</th>
+              <th>Score</th>
+              <th>Current Question</th>
+            </tr>
+          </thead>
+          <tbody id="ranking-table-body">
+            <!-- Rows will be populated here by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% if status == 'pending' %}
+        <p>Waiting for admin to start. Good luck!</p>
+        <div id="username-display">User Name:</div>
+        <button onclick="triggerActivityUpdates()">Trigger activity updates</button>
+      {% else %}
+        <h1>Vocabulary Quiz</h1>
+        <div id="timer">Time left: 60 seconds</div>
+        <div id="username-display">User Name:</div>
+        <div id="quiz-container">
+          <h2 id="question-title"></h2>
+          <div id="choices-container" class="choices-grid"></div>
+          <button id="submit-answer" class="btn submit-button">Submit Answer</button>
+        </div>
+        <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+  {{ room_id|json_script:"room-id" }}
+  {{ quiz_list|json_script:"quiz-list" }}
+  {{ user_name|json_script:"user-name" }}
+{% endblock %}
+{% block inline_javascript %}
+  <script>
+    const sessionId = JSON.parse(document.getElementById('room-id').textContent);
+    const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
+    const userName = JSON.parse(document.getElementById('user-name').textContent);
+    var isAdmin = "{{ is_admin|yesno:'true,false' }}" === 'true';
+    let currentQuestionIndex = 0;
+
+    // Handle question page
+    if (!isAdmin && "{{ status }}" !== 'pending') {
+      displayQuestion(quizList, currentQuestionIndex);
+      document.querySelector('#username-display').textContent = "User: " + userName;
+      // Click answer question - onclick event
+      document.querySelector('#submit-answer').onclick = function(e) {
+        e.preventDefault();
+        const selectedValue = document.querySelector('input[name="choice"]:checked')?.value;
+        userSocket.send(JSON.stringify({
+          'type': 'answer-question',
+          'choice': selectedValue,
+          'question_id': quizList[currentQuestionIndex].question_id,
+          'room_id': sessionId,
+          'user_name': userName
+        }));
+        currentQuestionIndex++;
+        setTimeout(() => {
+          displayQuestion(quizList, currentQuestionIndex);
+        }, 1000);
+
+        if (currentQuestionIndex == quizList.length) {
+          document.querySelector('#submit-answer').style.visibility = 'hidden';
+          window.location.href = window.location.protocol + "//" + window.location.host + "/chat/" + sessionId + "/review?user_name=" + userName;
+        }
+      };
+    } else if (isAdmin) {
+      document.querySelector('#join-link').value = "http://localhost:7000/chat/" + sessionId + "/";
+      document.querySelector('#start-timer').onclick = function(e) {
+        timerSocket.send(JSON.stringify({
+          'type': 'start_timer',
+          'duration': 60,
+          'room_id': sessionId,
+        }));
+      };
+    } else {
+      document.querySelector('#username-display').textContent = "User: " + userName;
+    }
+
+
+    function displayQuestion(quizList, index) {
+      if (index < quizList.length) {
+        document.querySelector('#submit-answer').disabled = false;
+        document.querySelector('#question-title').textContent = quizList[index].question_title;
+        const container = document.getElementById('choices-container');
+        container.innerHTML = '';
+        quizList[index].answer_choices.forEach(choice => {
+          const key = Object.keys(choice)[0];
+          const value = choice[key];
+
+          // Create a container for each choice item
+          const choiceItem = document.createElement('div');
+          choiceItem.className = 'choice-item';
+
+          // Create a radio button input element
+          const radioInput = document.createElement('input');
+          radioInput.type = 'radio';
+          radioInput.name = 'choice';
+          radioInput.value = key;
+          radioInput.id = `choice_${key}`;
+          radioInput.className = 'radio-input';
+
+          // Create a label for the radio button
+          const label = document.createElement('label');
+          label.setAttribute('for', `choice_${key}`);
+          label.textContent = `${key}: ${value}`;
+          label.className = 'choice-label';
+
+          // Append the radio input and label to the choice item
+          choiceItem.appendChild(radioInput);
+          choiceItem.appendChild(label);
+
+          // Append the choice item to the container
+          container.appendChild(choiceItem);
+        });
+      }
+    }
+
+    function copyLink() {
+      const linkInput = document.getElementById("join-link");
+      linkInput.select();
+      linkInput.setSelectionRange(0, 99999);
+      document.execCommand("copy");
+      alert("Link copied to clipboard!");
+    }
+
+    function populateRankingTable(ranking, questionId) {
+      const tbody = document.getElementById('ranking-table-body');
+      tbody.innerHTML = ''; // Clear any existing rows
+
+      ranking.forEach((player, index) => {
+        console.log(player);
+        const row = document.createElement('tr');
+
+        if (index === 0) {
+          row.classList.add('highlight');
+        }
+
+        const rankCell = document.createElement('td');
+        rankCell.textContent = index + 1;
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement('td');
+        nameCell.textContent = player.username;
+        row.appendChild(nameCell);
+
+        const scoreCell = document.createElement('td');
+        scoreCell.textContent = player.score;
+        row.appendChild(scoreCell);
+
+        const questionCell = document.createElement('td');
+        questionCell.textContent = questionId;
+        row.appendChild(questionCell);
+
+        tbody.appendChild(row);
+      });
+    }
+
+    const timerSocket = new WebSocket(
+      'ws://' +
+      window.location.host +
+      '/ws/chat/' +
+      sessionId +
+      '/timer/'
+    );
+
+    const userSocket = new WebSocket(
+      'ws://' +
+      window.location.host +
+      '/ws/chat/' +
+      sessionId +
+      '/user/'
+    );
+
+    const activitySocker = new WebSocket(
+      'ws://' +
+      window.location.host +
+      '/ws/chat/' +
+      sessionId +
+      '/activity/'
+    );
+
+    timerSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'timer') {
+        if (data.remaining_time) {
+          if (!isAdmin && "{{ status }}" === "pending") {
+            window.location.href = window.location.protocol + "//" + window.location.host + "/chat/" + sessionId + "?user_name=" + userName;
+          }
+          document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
+        } else if (data.message) {
+          document.getElementById('timer').innerText = data.message;
+          if (!isAdmin) {
+            window.location.href = window.location.protocol + "//" + window.location.host + "/chat/" + sessionId + "/review?user_name=" + userName;
+          }
+        }
+      }
+    };
+
+    userSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.message) {
+        document.querySelector('#submit-answer').disabled = true;
+        const selectedChoice = document.querySelector('input[name="choice"]:checked');
+        const containingDiv = selectedChoice?.closest('div');
+        if (data.message === 'correct') {
+          containingDiv.classList.add('correct-answer');
+        } else {
+          containingDiv.classList.add('incorrect-answer');
+        }
+
+      }
+    };
+
+    activitySocker.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      console.log(data.message);
+      console.log(data);
+      document.querySelector('#chat-log').value += (data.message + '\n');
+      if (data.ranking && data.question_id) {
+        populateRankingTable(data.ranking, data.question_id);
+      }
+    };
+
+    function triggerActivityUpdates() {
+      userSocket.send(JSON.stringify({
+        'type': 'answer-question',
+        'choice': "A",
+        'question_id': 1,
+        'room_id': sessionId,
+        'user_name': userName
+      }));
+    }
+  </script>
+{% endblock inline_javascript %}
