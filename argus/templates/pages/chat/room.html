@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    h1 {
+      font-size: 2em;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #quiz-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    #question-title {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+
+    /* Choices container as a grid */
+    .choices-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 15px;
+      text-align: left;
+    }
+
+    @media (min-width: 480px) {
+      .choices-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .choice-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+      cursor: pointer;
+    }
+
+    /* Radio input hidden, custom label styling */
+    .radio-input {
+      display: none;
+    }
+
+    .choice-label {
+      font-size: 1em;
+      margin-left: 10px;
+      color: #333;
+      width: 100%;
+    }
+
+    .choice-item:hover {
+      background-color: #f0f0f0;
+    }
+
+    .radio-input:checked+.choice-label {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    .submit-button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 1em;
+      font-weight: bold;
+      color: #fff;
+      background-color: #007bff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .submit-button:hover {
+      background-color: #0056b3;
+    }
+
+    .submit-button:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .correct-answer {
+      border: 2px solid #28a745;
+      background-color: #e6f4ea;
+      color: #155724;
+      border-radius: 5px;
+      padding: 8px;
+      transition: background-color 0.3s, border 0.3s;
+    }
+
+    .incorrect-answer {
+      border: 2px solid #dc3545;
+      background-color: #f8d7da;
+      color: #721c24;
+      border-radius: 5px;
+      padding: 8px;
+      transition: background-color 0.3s, border 0.3s;
+    }
+
+    .btn:disabled {
+      background-color: #d3d3d3;
+      color: #999;
+      cursor: not-allowed;
+      border: 1px solid #ccc;
+    }
+
+
+    .modal {
+      display: none;
+      /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      /* Transparent black background */
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+
+    .modal input {
+      padding: 10px;
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      font-size: 1em;
+    }
+
+    .modal button {
+      padding: 10px 20px;
+      margin-top: 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    #quiz-format {
+      color: #555;
+    }
+  </style>
+{% endblock css %}
+{% block content %}
+  {% if error %}
+    <h1>This session is not available</h1>
+  {% elif status == 'pending' %}
+    <h1>Waiting for admin to start. Good luck!</h1>
+    <div id="username-display"></div>
+    <div id="quiz-format">
+      <strong>Format:</strong> 10 questions, Multiple Choice, 1 minute per question.
+      <strong>Duration:</strong> 60 seconds.
+    </div>
+    <div id="nameModal" class="modal">
+      <div class="modal-content">
+        <h2>Joining session</h2>
+        <form onsubmit="submitName(event);">
+          <!-- Name Input -->
+          <div class="form-group">
+            <label for="nameInput">Your Name</label>
+            <input type="text"
+                   class="form-control"
+                   id="nameInput"
+                   placeholder="Your Name"
+                   required />
+          </div>
+          <!-- Session ID Input -->
+          <div class="form-group">
+            <label for="sessionId">Session ID</label>
+            <input type="text"
+                   class="form-control"
+                   id="sessionId"
+                   placeholder="Session ID"
+                   readonly
+                   required />
+          </div>
+          <!-- Submit Button -->
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      </div>
+    {% else %}
+      <h1>Vocabulary Quiz</h1>
+      <div id="timer">Time left: 60 seconds</div>
+      <div id="username-display"></div>
+      <div id="quiz-container">
+        <h2 id="question-title"></h2>
+        <div id="choices-container" class="choices-grid"></div>
+        <button id="submit-answer" class="btn submit-button">Submit Answer</button>
+      </div>
+      <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+    </div>
+  {% endif %}
+  {{ room_id|json_script:"room-id" }}
+  {{ quiz_list|json_script:"quiz-list" }}
+  {{ user_name|json_script:"user-name" }}
+{% endblock %}
+{% block inline_javascript %}
+  <script>
+    const sessionId = JSON.parse(document.getElementById('room-id').textContent);
+    const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
+    const userName = JSON.parse(document.getElementById('user-name').textContent);
+    console.log(userName);
+    let currentQuestionIndex = 0;
+
+    if (userName == null) {
+      openModal(sessionId);
+    }
+
+    // Handle question page
+    if ("{{ status }}" !== 'pending') {
+      displayQuestion(quizList, currentQuestionIndex);
+      if (userName) {
+        document.querySelector('#username-display').textContent = "User: " + userName;
+      }
+      // Click answer question - onclick event
+      document.querySelector('#submit-answer').onclick = function(e) {
+        e.preventDefault();
+        const selectedValue = document.querySelector('input[name="choice"]:checked')?.value;
+        userSocket.send(JSON.stringify({
+          'type': 'answer-question',
+          'choice': selectedValue,
+          'question_id': quizList[currentQuestionIndex].question_id,
+          'room_id': sessionId,
+          'user_name': userName
+        }));
+        currentQuestionIndex++;
+        setTimeout(() => {
+          displayQuestion(quizList, currentQuestionIndex);
+        }, 1000);
+
+        if (currentQuestionIndex == quizList.length) {
+          document.querySelector('#submit-answer').style.visibility = 'hidden';
+          window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "/review?user_name=" + userName;
+        }
+      };
+    } else {
+      if (userName) {
+        document.querySelector('#username-display').textContent = "User: " + userName;
+      }
+    }
+
+    function openModal(session_id) {
+      console.log(document.getElementById('nameModal'));
+      document.getElementById('nameModal').style.display = 'flex';
+      document.getElementById('sessionId').value = session_id;
+    }
+
+    function submitName(e) {
+      e.preventDefault();
+      const name = document.getElementById('nameInput').value;
+      const sessionId = document.getElementById('sessionId').value;
+      window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "?user_name=" + name;
+    }
+
+    function displayQuestion(quizList, index) {
+      if (index < quizList.length) {
+        document.querySelector('#submit-answer').disabled = false;
+        document.querySelector('#question-title').textContent = quizList[index].question_title;
+        const container = document.getElementById('choices-container');
+        container.innerHTML = '';
+        quizList[index].answer_choices.forEach(choice => {
+          const key = Object.keys(choice)[0];
+          const value = choice[key];
+
+          // Create a container for each choice item
+          const choiceItem = document.createElement('div');
+          choiceItem.className = 'choice-item';
+
+          // Create a radio button input element
+          const radioInput = document.createElement('input');
+          radioInput.type = 'radio';
+          radioInput.name = 'choice';
+          radioInput.value = key;
+          radioInput.id = `choice_${key}`;
+          radioInput.className = 'radio-input';
+
+          // Create a label for the radio button
+          const label = document.createElement('label');
+          label.setAttribute('for', `choice_${key}`);
+          label.textContent = `${key}: ${value}`;
+          label.className = 'choice-label';
+
+          // Append the radio input and label to the choice item
+          choiceItem.appendChild(radioInput);
+          choiceItem.appendChild(label);
+
+          // Append the choice item to the container
+          container.appendChild(choiceItem);
+        });
+      }
+    }
+
+    function copyLink() {
+      const linkInput = document.getElementById("join-link");
+      linkInput.select();
+      linkInput.setSelectionRange(0, 99999);
+      document.execCommand("copy");
+      alert("Link copied to clipboard!");
+    }
+
+    const timerSocket = new WebSocket(
+      'ws://' +
+      "host.docker.internal:8000" +
+      '/ws/quiz/' +
+      sessionId +
+      '/timer/'
+    );
+
+    const userSocket = new WebSocket(
+      'ws://' +
+      "host.docker.internal:8000" +
+      '/ws/quiz/' +
+      sessionId +
+      '/user/'
+    );
+
+    timerSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'timer') {
+        if (data.remaining_time) {
+          if ("{{ status }}" === "pending") {
+            window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "?user_name=" + userName;
+          }
+          document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
+        } else if (data.message) {
+          document.getElementById('timer').innerText = data.message;
+          window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "/review?user_name=" + userName;
+        }
+      }
+    };
+
+    userSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.message) {
+        document.querySelector('#submit-answer').disabled = true;
+        const selectedChoice = document.querySelector('input[name="choice"]:checked');
+        const containingDiv = selectedChoice?.closest('div');
+        if (data.message === 'correct') {
+          containingDiv.classList.add('correct-answer');
+        } else {
+          containingDiv.classList.add('incorrect-answer');
+        }
+
+      }
+    };
+  </script>
+{% endblock inline_javascript %}

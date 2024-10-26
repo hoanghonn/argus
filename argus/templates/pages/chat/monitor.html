@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    h1 {
+      font-size: 2em;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .inline-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      /* Space between input and button */
+    }
+
+    .inline-container input {
+      flex: 1;
+    }
+
+    #join-link {
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .copy-button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      font-size: 0.7em;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .copy-button:hover {
+      background-color: #0056b3;
+    }
+
+    .copy-button:active {
+      background-color: #004494;
+    }
+
+    .copy-button:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5);
+    }
+
+    .start-timer-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #start-timer {
+      background-color: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background-color 0.3s;
+
+    }
+
+    #start-timer:hover {
+      background-color: #218838;
+    }
+
+    #timer {
+      font-size: 1.2em;
+      margin-top: 20px;
+      color: #dc3545;
+      text-align: center;
+    }
+
+    #chat-log {
+      width: 100%;
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      background-color: #e9ecef;
+      font-family: monospace;
+      resize: none;
+    }
+
+    .timer-container {
+      display: none;
+    }
+
+    .chat-container {
+      display: none;
+    }
+
+    .ranking-container {
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    .ranking-container h2 {
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+
+    th {
+      background-color: #007bff;
+      color: #fff;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    .btn {
+      margin-top: 10px;
+    }
+
+    .highlight {
+      background-color: #d1ecf1;
+      font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+
+      table,
+      th,
+      td {
+        font-size: 0.9em;
+      }
+    }
+
+    #quiz-format {
+      color: #555;
+    }
+  </style>
+{% endblock css %}
+{% block content %}
+  {% if error %}
+    <p>This session is not available</p>
+  {% else %}
+    {% if status == 'completed' %}
+      <h1>Results for {{ room_name }} session</h1>
+    {% else %}
+      <h1>Monitoring {{ room_name }} session</h1>
+    {% endif %}
+    {% if status != 'completed' %}
+      <div class="copy-link-container">
+        <label for="join-link">Share this link to join:</label>
+        <div class="inline-container">
+          <input type="text" id="join-link" value="link here" readonly />
+          <button onclick="copyLink()" class="btn copy-button">Copy Link</button>
+        </div>
+      </div>
+      <div id="quiz-format">
+        <strong>Format:</strong> 10 questions, Multiple Choice, 1 minute per question.
+        <strong>Duration:</strong> 60 seconds.
+      </div>
+      <div class="start-timer-container">
+        <button id="start-timer">Start the session</button>
+      </div>
+    {% endif %}
+    <div class="timer-container">
+      <div id="timer">Time left: 60 seconds</div>
+    </div>
+    <div class="ranking-container">
+      <h2>Quiz Ranking</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player Name</th>
+            <th>Score</th>
+            <th>Live Updates</th>
+          </tr>
+        </thead>
+        <tbody id="ranking-table-body">
+        </tbody>
+      </table>
+    </div>
+    <div class="chat-container">
+      <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+    </div>
+  {% endif %}
+  {{ room_id|json_script:"room-id" }}
+  {{ quiz_list|json_script:"quiz-list" }}
+  {{ user_name|json_script:"user-name" }}
+  {{ scores|json_script:"scores" }}
+{% endblock %}
+{% block inline_javascript %}
+  <script>
+    const sessionId = JSON.parse(document.getElementById('room-id').textContent);
+    const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
+    const userName = JSON.parse(document.getElementById('user-name').textContent);
+    const ranking = JSON.parse(document.getElementById('scores').textContent);
+    populateRankingTable(ranking);
+    document.querySelector('#join-link').value = "http://localhost:8000/quiz/" + sessionId + "/";
+    document.querySelector('#start-timer').onclick = function(e) {
+      timerSocket.send(JSON.stringify({
+        'type': 'start_timer',
+        'duration': 60,
+        'room_id': sessionId,
+      }));
+      document.querySelector('.timer-container').style.display = "block";
+      document.querySelector('.chat-container').style.display = "block";
+      document.querySelector('.copy-link-container').style.display = "none";
+      document.querySelector('#quiz-format').style.display = "none";
+      document.querySelector('.start-timer-container').style.display = "none";
+    };
+
+    function copyLink() {
+      const linkInput = document.getElementById("join-link");
+      linkInput.select();
+      linkInput.setSelectionRange(0, 99999);
+      document.execCommand("copy");
+      alert("Link copied to clipboard!");
+    }
+
+    function populateRankingTable(ranking) {
+      const tbody = document.getElementById('ranking-table-body');
+      tbody.innerHTML = ''; // Clear any existing rows
+
+      ranking.forEach((player, index) => {
+        const row = document.createElement('tr');
+        let questionId = player.current_question;
+
+        if (index === 0 && questionId > 0) {
+          row.classList.add('highlight');
+        }
+
+        const rankCell = document.createElement('td');
+        rankCell.textContent = index + 1;
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement('td');
+        nameCell.textContent = player.username;
+        row.appendChild(nameCell);
+
+        const scoreCell = document.createElement('td');
+        let scoreContent = player.score;
+        if (questionId == 0) {
+          scoreContent = "...";
+        }
+        scoreCell.textContent = scoreContent;
+        row.appendChild(scoreCell);
+
+        const questionCell = document.createElement('td');
+        let questionContent = "Ready to compete";
+        if (questionId > 0 && questionId < quizList.length) {
+          questionContent = "Answering question " + (questionId + 1);
+        } else if (questionId >= quizList.length) {
+          questionContent = "Completed"
+        }
+        questionCell.textContent = questionContent;
+        row.appendChild(questionCell);
+
+        tbody.appendChild(row);
+      });
+
+      if (ranking.length == 0) {
+        const row = document.createElement('tr');
+
+        const rankCell = document.createElement('td');
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement('td');
+        nameCell.textContent = "Waiting for player to join..";
+        row.appendChild(nameCell);
+
+        const scoreCell = document.createElement('td');
+        row.appendChild(scoreCell);
+
+        const questionCell = document.createElement('td');
+        row.appendChild(questionCell);
+
+        tbody.appendChild(row);
+      }
+    }
+
+    const timerSocket = new WebSocket(
+      'ws://' +
+      "host.docker.internal:8000" +
+      '/ws/quiz/' +
+      sessionId +
+      '/timer/'
+    );
+
+    const activitySocker = new WebSocket(
+      'ws://' +
+      "host.docker.internal:8000" +
+      '/ws/quiz/' +
+      sessionId +
+      '/activity/'
+    );
+
+    timerSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'timer') {
+        if (data.remaining_time) {
+          document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
+        } else if (data.message) {
+          document.getElementById('timer').innerText = data.message;
+          window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "/monitor";
+
+        }
+      }
+    };
+
+    activitySocker.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      console.log(data);
+      document.querySelector('#chat-log').value += (data.message + '\n');
+      console.log(data.ranking);
+      console.log(data.question_id);
+      if ('ranking' in data) {
+        console.log("here")
+        populateRankingTable(data.ranking);
+        document.querySelector('.chat-container').style.display = "block";
+      }
+    };
+  </script>
+{% endblock inline_javascript %}

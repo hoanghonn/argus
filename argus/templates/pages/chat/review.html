@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    h1 {
+      font-size: 2em;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .notification {
+      text-align: center;
+    }
+
+    .ranking-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    .ranking-container h2 {
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #007bff;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    .gold-medal {
+      background: linear-gradient(135deg, #ffeb3b, #ffd700);
+      font-weight: bold;
+
+    }
+
+    .silver-medal {
+      background: linear-gradient(135deg, #e0e0e0, #b0b0b0);
+      font-weight: bold;
+
+    }
+
+    .bronze-medal {
+      background: linear-gradient(135deg, #e4a267, #cd7f32);
+      font-weight: bold;
+
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+
+      table,
+      th,
+      td {
+        font-size: 0.9em;
+      }
+    }
+  </style>
+{% endblock css %}
+{% block content %}
+  {% if status != 'completed' %}
+    <h1>Waiting for other to complete</h1>
+    <div id="timer">Time left: 60 seconds</div>
+  {% else %}
+    <h1>Results for {{ room_name }} session</h1>
+  {% endif %}
+  <p class="notification">You answered {{ score }} out of {{ max_score }} correctly.</p>
+  <div class="ranking-container">
+    <h2>Quiz Ranking</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Player Name</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody id="ranking-table-body">
+        <!-- Rows will be populated here by JavaScript -->
+      </tbody>
+    </table>
+  </div>
+  {% if status != 'completed' %}
+    <p>Live updates:</p>
+    <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+  {% endif %}
+  {{ room_id|json_script:"room-id" }}
+  {{ quiz_list|json_script:"quiz-list" }}
+  {{ scores|json_script:"scores" }}
+  {{ user_name|json_script:"user-name" }}
+{% endblock %}
+{% block inline_javascript %}
+  <script>
+    const roomId = JSON.parse(document.getElementById('room-id').textContent);
+    const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
+    const ranking = JSON.parse(document.getElementById('scores').textContent);
+    const userName = JSON.parse(document.getElementById('user-name').textContent);
+
+    let currentQuestionIndex = 0;
+
+    const timerSocket = new WebSocket(
+      'ws://' +
+      "host.docker.internal:8000" +
+      '/ws/quiz/' +
+      roomId +
+      '/timer/'
+    );
+
+    timerSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'timer') {
+        if (data.remaining_time) {
+          document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
+        } else if (data.message) {
+          document.getElementById('timer').innerText = data.message;
+        }
+      }
+    };
+
+    function populateRankingTable() {
+      const tbody = document.getElementById('ranking-table-body');
+      tbody.innerHTML = ''; // Clear any existing rows
+
+      ranking.forEach((player, index) => {
+        const row = document.createElement('tr');
+
+        if (index === 0) {
+          row.classList.add('gold-medal');
+        }
+        if (index === 1) {
+          row.classList.add('silver-medal');
+        }
+        if (index === 2) {
+          row.classList.add('bronze-medal');
+        }
+
+        const rankCell = document.createElement('td');
+        rankCell.textContent = index + 1;
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement('td');
+        let nameContent = player.username;
+        console.log(userName)
+        if (nameContent === userName) {
+          nameContent += " (You)";
+        }
+        nameCell.textContent = nameContent;
+        row.appendChild(nameCell);
+
+        const scoreCell = document.createElement('td');
+        scoreCell.textContent = player.score;
+        row.appendChild(scoreCell);
+
+        tbody.appendChild(row);
+      });
+    }
+
+    // Call the function to populate the table when the page loads
+    populateRankingTable();
+  </script>
+{% endblock inline_javascript %}

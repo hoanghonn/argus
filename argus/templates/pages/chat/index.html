@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    h1 {
+      font-size: 2em;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .card-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    /* Card styling */
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: 0.3s;
+      background-color: #f9f9f9;
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-title {
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .card-content {
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .card-footer {
+      margin-top: 12px;
+      font-size: 0.8em;
+      color: #777;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+
+    .btn-join {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .btn-monitor {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .modal {
+      display: none;
+      /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      /* Transparent black background */
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+
+    .modal input {
+      padding: 10px;
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      font-size: 1em;
+    }
+
+    .modal button {
+      padding: 10px 20px;
+      margin-top: 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+  </style>
+{% endblock css %}
+{% block content %}
+  <h1>Create a new quiz session</h1>
+  <form id="create-room-form"
+        action="{% url 'quiz_index' %}"
+        method="POST"
+        class="bg-light p-4 rounded shadow-sm">
+    {% csrf_token %}
+    <!-- Room Name Input -->
+    <div class="form-group">
+      <label for="room-name" class="font-weight-bold">Room Name:</label>
+      <input type="text"
+             id="room-name"
+             name="room_name"
+             class="form-control"
+             placeholder="Enter room name"
+             required />
+    </div>
+    <!-- Submit Button -->
+    <button type="submit" class="btn btn-primary btn-block">Create Room</button>
+  </form>
+  <h1>Or join an active session</h1>
+  <div class="card-container">
+    {% for session in active_sessions %}
+      <div class="card">
+        <div class="card-title">{{ session.user.username }}</div>
+        <div class="card-content">
+          <p>
+            <strong>Session ID:</strong> {{ session.session_id }}
+          </p>
+          <p>
+            <strong>Channel Name:</strong> {{ session.session_name }}
+          </p>
+        </div>
+        <div class="button-group">
+          <button class="btn btn-join" onclick="openModal({{ session.session_id }})">Join</button>
+          <button class="btn btn-monitor"
+                  onclick="window.location.href='{% url 'monitor' session.session_id %}'">Monitor</button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <div id="nameModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2>Joining session</h2>
+      <form onsubmit="submitName(event);">
+        <!-- Name Input -->
+        <div class="form-group">
+          <label for="nameInput">Your Name</label>
+          <input type="text"
+                 class="form-control"
+                 id="nameInput"
+                 placeholder="Your Name"
+                 required />
+        </div>
+        <!-- Session ID Input -->
+        <div class="form-group">
+          <label for="sessionId">Session ID</label>
+          <input type="text"
+                 class="form-control"
+                 id="sessionId"
+                 placeholder="Session ID"
+                 readonly
+                 required />
+        </div>
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+{% block inline_javascript %}
+  <script>
+    function openModal(session_id) {
+      document.getElementById('nameModal').style.display = 'flex';
+      document.getElementById('sessionId').value = session_id;
+    }
+
+    function closeModal() {
+      document.getElementById('nameModal').style.display = 'none';
+    }
+
+    function submitName(e) {
+      e.preventDefault();
+      const name = document.getElementById('nameInput').value;
+      const sessionId = document.getElementById('sessionId').value;
+      window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "?user_name=" + name;
+      closeModal(); // Close modal after submission
+    }
+
+    // Close the modal when clicking outside of it
+    window.onclick = function(event) {
+      const modal = document.getElementById('nameModal');
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
+  </script>
+{% endblock inline_javascript %}
