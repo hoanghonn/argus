@@ -134,7 +134,7 @@
 
     const timerSocket = new WebSocket(
       'ws://' +
-      "host.docker.internal:8000" +
+      window.location.host +
       '/ws/quiz/' +
       sessionId +
       '/timer/'
@@ -142,7 +142,7 @@
 
     const activitySocker = new WebSocket(
       'ws://' +
-      "host.docker.internal:8000" +
+      window.location.host +
       '/ws/quiz/' +
       sessionId +
       '/activity/'
