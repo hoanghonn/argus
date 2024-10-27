@@ -29,10 +29,6 @@ Then you can access Argus with http://localhost:8000. Enjoy quizzing!
   
 ### Part 2: Implementation
 
-1. **Pick a Component**:
-   - [x] **Real-time Quiz Participation**: Enabled users to join a quiz session using a unique quiz ID.
-   - [x] **Real-time Score Updates**: Users’ scores update in real-time as they submit answers.
-   - [x] **Real-time Leaderboard**: Displayed a real-time leaderboard showing the current standings of all participants.
-
-2. **Build For the Future**:
-   See in-depth analysis [here]().
+- [x] **Real-time Quiz Participation**: Enabled users to join a quiz session using a unique quiz ID.
+- [x] **Real-time Score Updates**: Users’ scores update in real-time as they submit answers.
+- [x] **Real-time Leaderboard**: Displayed a real-time leaderboard showing the current standings of all participants.
