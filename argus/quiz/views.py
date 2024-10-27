@@ -17,58 +17,61 @@ def index(request):
         )
 
         return redirect(reverse("monitor", args=[quiz_session.session_id]))
-    quiz_sessions = QuizSession.objects.filter(is_active=True).all()
+    quiz_sessions = (
+        QuizSession.objects.filter(is_active=True).exclude(status="in progress").all()
+    )
     return render(request, "pages/chat/index.html", {"active_sessions": quiz_sessions})
 
 
 def room(request, session_id):
     user_name = request.GET.get("user_name")
-    try:
-        quiz_session = QuizSession.objects.get(session_id=session_id, is_active=True)
-        if (
-            user_name
-            and not QuizScore.objects.filter(
-                quiz_session=quiz_session, username=user_name
-            ).exists()
-        ):
-            QuizScore.objects.create(
-                quiz_session=quiz_session,
-                score=0,
-                max_score=len(quiz_list),
-                username=user_name,
-            )
-        print(quiz_session.status)
-        if user_name and quiz_session.status == "pending":
-            activity_group_name = "session_%s" % session_id
-            activity_msg = {
-                "type": "update_activity",
-                "message": f"{user_name} joined.",
-                "question_id": 0,
-            }
-            ranking = list(
-                QuizScore.objects.filter(quiz_session=quiz_session)
-                .all()
-                .order_by("-score")
-                .values("username", "score", "max_score", "current_question")
-            )
-            if ranking:
-                print(ranking)
-                activity_msg["ranking"] = ranking
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(activity_group_name, activity_msg)
-        return render(
-            request,
-            "pages/chat/room.html",
-            {
-                "room_name": quiz_session.session_name,
-                "room_id": quiz_session.session_id,
-                "quiz_list": quiz_list,
-                "user_name": user_name,
-                "status": quiz_session.status,
-            },
-        )
-    except QuizSession.DoesNotExist:
+    quiz_session = (
+        QuizSession.objects.filter(session_id=session_id, is_active=True)
+        .exclude(status__in=["completed"])
+        .first()
+    )
+    if not quiz_session:
         return render(request, "pages/chat/room.html", {"error": "inactive"})
+    if (
+        user_name
+        and not QuizScore.objects.filter(
+            quiz_session=quiz_session, username=user_name
+        ).exists()
+    ):
+        QuizScore.objects.create(
+            quiz_session=quiz_session,
+            score=0,
+            max_score=len(quiz_list),
+            username=user_name,
+        )
+    if user_name and quiz_session.status == "pending":
+        activity_group_name = "session_%s" % session_id
+        activity_msg = {
+            "type": "update_activity",
+            "message": f"{user_name} joined.",
+            "question_id": 0,
+        }
+        ranking = list(
+            QuizScore.objects.filter(quiz_session=quiz_session)
+            .all()
+            .order_by("-score")
+            .values("username", "score", "max_score", "current_question")
+        )
+        if ranking:
+            activity_msg["ranking"] = ranking
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(activity_group_name, activity_msg)
+    return render(
+        request,
+        "pages/chat/room.html",
+        {
+            "room_name": quiz_session.session_name,
+            "room_id": quiz_session.session_id,
+            "quiz_list": quiz_list,
+            "user_name": user_name,
+            "status": quiz_session.status,
+        },
+    )
 
 
 def monitor(request, session_id):
@@ -93,7 +96,6 @@ def monitor(request, session_id):
             .order_by("-score")
             .values("username", "score", "max_score", "current_question")
         )
-        print(quiz_scores)
         return render(
             request,
             "pages/chat/monitor.html",

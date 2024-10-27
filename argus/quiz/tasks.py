@@ -41,7 +41,6 @@ def start_timer(room_group_name, duration, session_id):
             quiz_session=quiz_session,
             current_question__lte=len(quiz_list),
         ).all()
-        print(quiz_scores)
         for score in quiz_scores:
             score.current_question = len(quiz_list) + 1
             score.save()

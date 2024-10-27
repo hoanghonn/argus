@@ -43,7 +43,6 @@ class UserConsumer(AsyncWebsocketConsumer):
             }
             ranking = await self.get_ranking(session_id)
             if ranking:
-                print(ranking)
                 activity_msg["ranking"] = ranking
             await self.channel_layer.group_send(activity_group_name, activity_msg)
 

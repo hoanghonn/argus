@@ -222,7 +222,6 @@
         <div id="choices-container" class="choices-grid"></div>
         <button id="submit-answer" class="btn submit-button">Submit Answer</button>
       </div>
-      <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
     </div>
   {% endif %}
   {{ room_id|json_script:"room-id" }}
@@ -234,7 +233,6 @@
     const sessionId = JSON.parse(document.getElementById('room-id').textContent);
     const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
     const userName = JSON.parse(document.getElementById('user-name').textContent);
-    console.log(userName);
     let currentQuestionIndex = 0;
 
     if (userName == null) {
@@ -265,7 +263,7 @@
 
         if (currentQuestionIndex == quizList.length) {
           document.querySelector('#submit-answer').style.visibility = 'hidden';
-          window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "/review?user_name=" + userName;
+          window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "/review?user_name=" + userName;
         }
       };
     } else {
@@ -275,7 +273,6 @@
     }
 
     function openModal(session_id) {
-      console.log(document.getElementById('nameModal'));
       document.getElementById('nameModal').style.display = 'flex';
       document.getElementById('sessionId').value = session_id;
     }
@@ -284,7 +281,7 @@
       e.preventDefault();
       const name = document.getElementById('nameInput').value;
       const sessionId = document.getElementById('sessionId').value;
-      window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "?user_name=" + name;
+      window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "?user_name=" + name;
     }
 
     function displayQuestion(quizList, index) {
@@ -354,12 +351,12 @@
       if (data.type === 'timer') {
         if (data.remaining_time) {
           if ("{{ status }}" === "pending") {
-            window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "?user_name=" + userName;
+            window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "?user_name=" + userName;
           }
           document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
         } else if (data.message) {
           document.getElementById('timer').innerText = data.message;
-          window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "/review?user_name=" + userName;
+          window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "/review?user_name=" + userName;
         }
       }
     };

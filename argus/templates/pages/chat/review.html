@@ -78,6 +78,17 @@
         font-size: 0.9em;
       }
     }
+
+    #chat-log {
+      width: 100%;
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      background-color: #e9ecef;
+      font-family: monospace;
+      resize: none;
+    }
   </style>
 {% endblock css %}
 {% block content %}
@@ -104,8 +115,9 @@
     </table>
   </div>
   {% if status != 'completed' %}
-    <p>Live updates:</p>
-    <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+    <div class="chat-container">
+      <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+    </div>
   {% endif %}
   {{ room_id|json_script:"room-id" }}
   {{ quiz_list|json_script:"quiz-list" }}
@@ -114,19 +126,26 @@
 {% endblock %}
 {% block inline_javascript %}
   <script>
-    const roomId = JSON.parse(document.getElementById('room-id').textContent);
+    const sessionId = JSON.parse(document.getElementById('room-id').textContent);
     const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
     const ranking = JSON.parse(document.getElementById('scores').textContent);
     const userName = JSON.parse(document.getElementById('user-name').textContent);
-
-    let currentQuestionIndex = 0;
+    populateRankingTable(ranking);
 
     const timerSocket = new WebSocket(
       'ws://' +
       "host.docker.internal:8000" +
       '/ws/quiz/' +
-      roomId +
+      sessionId +
       '/timer/'
+    );
+
+    const activitySocker = new WebSocket(
+      'ws://' +
+      "host.docker.internal:8000" +
+      '/ws/quiz/' +
+      sessionId +
+      '/activity/'
     );
 
     timerSocket.onmessage = function(e) {
@@ -136,11 +155,21 @@
           document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
         } else if (data.message) {
           document.getElementById('timer').innerText = data.message;
+          window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "/review?user_name=" + userName;
         }
       }
     };
 
-    function populateRankingTable() {
+    activitySocker.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      document.querySelector('#chat-log').value += (data.message + '\n');
+      if ('ranking' in data) {
+        populateRankingTable(data.ranking);
+        document.querySelector('.chat-container').style.display = "block";
+      }
+    };
+
+    function populateRankingTable(ranking) {
       const tbody = document.getElementById('ranking-table-body');
       tbody.innerHTML = ''; // Clear any existing rows
 
@@ -163,7 +192,6 @@
 
         const nameCell = document.createElement('td');
         let nameContent = player.username;
-        console.log(userName)
         if (nameContent === userName) {
           nameContent += " (You)";
         }
@@ -177,8 +205,5 @@
         tbody.appendChild(row);
       });
     }
-
-    // Call the function to populate the table when the page loads
-    populateRankingTable();
   </script>
 {% endblock inline_javascript %}
