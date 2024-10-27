@@ -309,8 +309,10 @@
           // Create a label for the radio button
           const label = document.createElement('label');
           label.setAttribute('for', `choice_${key}`);
-          label.textContent = `${key}: ${value}`;
           label.className = 'choice-label';
+
+          label.appendChild(radioInput);
+          label.appendChild(document.createTextNode(`${key}: ${value}`));
 
           // Append the radio input and label to the choice item
           choiceItem.appendChild(radioInput);
