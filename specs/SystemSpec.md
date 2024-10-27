@@ -1,4 +1,4 @@
-# System Specifications
+# System Design Document
 
 Argus is a streamlined, efficient platform for conducting and monitoring quiz sessions, designed for seamless user experience and robust performance.
 
@@ -61,13 +61,39 @@ Redis serves two main functions in Argus:
 The following steps outline the data flow for a typical user interaction within Argus:
 
 1. **Session Creation**: A new session is initiated by a user in the Main Room, and a `QuizSession` entry is created in PostgreSQL.
-2. **Real-Time Updates**: As participants join, Redis Channel Layers update WebSocket connections to ensure real-time data sharing.
+2. **Real-Time Updates**: As participants join, Channel Layers update WebSocket connections to ensure real-time data sharing.
 3. **Question Timer**: Celery manages quiz question timers via Redis, sending periodic updates back to the WebSocket for live display.
-4. **Score Tracking**: Each user's response is recorded and stored in `QuizScore`, which is updated dynamically during the session.
+4. **Score Tracking**: Each user's response is recorded and stored in `QuizScore`, which is updated dynamically during the session. The Websocket connection will be responsible for transferring user's scores to admin and other users.
 5. **Session Completion**: After the quiz, participants are redirected to the Review Page, where scores and statistics are displayed.
 
 This architecture ensures responsive, real-time interaction with minimal latency, providing an engaging and interactive experience for users.
 
----
+![Dataflow Diagram](dataflow.png)
 
-This Markdown format preserves the headings, bold text, and inline links, making it suitable for documentation files or web platforms like GitHub.
+## Technologies and Tools
+
+### Python and Django
+
+- **Reason**: Python's readability and Django's batteries-included framework simplify backend development. Django's MVT pattern helps organize code cleanly, which improves maintainability, while its ORM eases interactions with the database.
+
+### Django Channels
+
+- **Reason**: Django Channels enables real-time functionality using WebSockets, critical for live quiz updates. It integrates well with Django, supporting asynchronous communication while maintaining a consistent framework for both synchronous and asynchronous tasks.
+
+### Celery
+
+- **Reason**: Celery is a powerful asynchronous task manager that allows tasks to run in the background, separate from the main server. This is particularly useful for handling timers in quiz sessions without affecting server performance.
+
+### Redis
+
+- **Reason**: Redis is used for two purposes in Argus:
+  - **Channel Layers**: It provides an in-memory data store to manage WebSocket routing, crucial for real-time connections.
+  - **Message Broker**: Redis acts as a reliable message broker for Celery, efficiently facilitating communication between the server and background workers.
+
+### PostgreSQL
+
+- **Reason**: PostgreSQL is a robust and powerful SQL database that handles complex queries, which is ideal for storing and retrieving session and score data reliably. Its support for ACID compliance ensures data integrity, which is essential in handling quiz scores.
+
+### Docker
+
+- **Reason**: Docker isolates services (Django, Celery, Redis, and PostgreSQL) into individual containers, allowing for easy scalability, reproducible development environments, and simplified deployment.
