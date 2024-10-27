@@ -211,8 +211,11 @@
     const quizList = JSON.parse(document.getElementById('quiz-list').textContent);
     const userName = JSON.parse(document.getElementById('user-name').textContent);
     const ranking = JSON.parse(document.getElementById('scores').textContent);
+    const status = "{{status|safe}}";
     populateRankingTable(ranking);
-    document.querySelector('#join-link').value = "http://localhost:8000/quiz/" + sessionId + "/";
+    if (status !== "completed") {
+      document.querySelector('#join-link').value = "http://localhost:8000/quiz/" + sessionId + "/";
+    }
     document.querySelector('#start-timer').onclick = function(e) {
       timerSocket.send(JSON.stringify({
         'type': 'start_timer',
@@ -282,7 +285,11 @@
         row.appendChild(rankCell);
 
         const nameCell = document.createElement('td');
-        nameCell.textContent = "Waiting for player to join..";
+        if (status !== 'completed') {
+          nameCell.textContent = "Waiting for player to join.";
+        } else {
+          nameCell.textContent = "No player completed this quiz."
+        }
         row.appendChild(nameCell);
 
         const scoreCell = document.createElement('td');
@@ -318,7 +325,7 @@
           document.getElementById('timer').innerText = `Time left: ${data.remaining_time} seconds`;
         } else if (data.message) {
           document.getElementById('timer').innerText = data.message;
-          window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "/monitor";
+          window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "/monitor";
 
         }
       }
@@ -326,12 +333,8 @@
 
     activitySocker.onmessage = function(e) {
       const data = JSON.parse(e.data);
-      console.log(data);
       document.querySelector('#chat-log').value += (data.message + '\n');
-      console.log(data.ranking);
-      console.log(data.question_id);
       if ('ranking' in data) {
-        console.log("here")
         populateRankingTable(data.ranking);
         document.querySelector('.chat-container').style.display = "block";
       }

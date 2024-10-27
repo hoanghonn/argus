@@ -160,6 +160,14 @@
           <p>
             <strong>Channel Name:</strong> {{ session.session_name }}
           </p>
+          <p>
+            <strong>Status:</strong>
+            {% if session.status == 'pending' %}
+              Available to join.
+            {% else %}
+              {{ session.status|upper }}
+            {% endif %}
+          </p>
         </div>
         <div class="button-group">
           <button class="btn btn-join" onclick="openModal({{ session.session_id }})">Join</button>
@@ -214,7 +222,7 @@
       e.preventDefault();
       const name = document.getElementById('nameInput').value;
       const sessionId = document.getElementById('sessionId').value;
-      window.location.href = window.location.protocol + "//" + "host.docker.internal:8000" + "/quiz/" + sessionId + "?user_name=" + name;
+      window.location.href = window.location.protocol + "//" + window.location.host + "/quiz/" + sessionId + "?user_name=" + name;
       closeModal(); // Close modal after submission
     }
 
